@@ -79,3 +79,9 @@ class DirectionalGhost( GhostAgent ):
         for a in legalActions: dist[a] += ( 1-bestProb ) / len(legalActions)
         dist.normalize()
         return dist
+
+class AuctionGhost(GhostAgent):
+    "A ghost that communicates with other ghosts its current state"
+    "This can be used as part of the 'bidding' process in the Auction"
+    def __init__(self, index):
+        self.index = index
