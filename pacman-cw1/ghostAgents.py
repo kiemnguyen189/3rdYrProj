@@ -78,10 +78,40 @@ class DirectionalGhost( GhostAgent ):
         for a in bestActions: dist[a] = bestProb / len(bestActions)
         for a in legalActions: dist[a] += ( 1-bestProb ) / len(legalActions)
         dist.normalize()
+        print "2: ", dist
         return dist
 
-class AuctionGhost(GhostAgent):
+
+
+class AuctionGhost( GhostAgent ):
     "A ghost that communicates with other ghosts its current state"
     "This can be used as part of the 'bidding' process in the Auction"
-    def __init__(self, index):
+    def __init__( self, index ):
         self.index = index
+
+    def getDistribution( self, state ):
+
+        ghostState = state.getGhostState( self.index )
+        legalActions = state.getLegalActions( self.index )
+        pos = state.getGhostPosition( self.index )
+        isScared = ghostState.scaredTimer > 0
+
+        speed = 1
+        if isScared: speed = 0.5
+
+
+
+        return dist
+
+
+"""
+while running = True:
+    winBids = []
+    ghosts = []
+    ghostPositions = {}
+    ghostDistances = {}
+    ghostsScared = {}
+    scaredTimers = {}
+    for ghost in ghosts:
+        highestBid = min(ghostDistances, key= ghostDistances.get) + min(scaredTimers, key= scaredTimers.get)
+"""
