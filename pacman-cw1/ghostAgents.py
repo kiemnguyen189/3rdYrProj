@@ -227,22 +227,24 @@ class AuctionGhost( GhostAgent ):
         """
         # ---- TEST ----
 
-        # TODO: FIGURE THIS OUT
         # Select best actions given the state
         # Calculates Manhattan of ALL legal vectors
         distancesToPacman = [manhattanDistance( pos, pacmanPosition ) for pos in newPositions]
         #print distancesToPacman
 
+        # TODO: REPLACE THIS WHOLE AREA WITH OWN IMPLEMENTATION OF CHASE, PATROL, RUN
         # If scared, best choice = vector FURTHEST from pacman
         if isScared:
             bestScore = max( distancesToPacman )
             print "1: ", bestScore
             bestProb = self.prob_scaredFlee
         # If normal, best choice = vector CLOSEST to pacman
+        # todo: Maybe add here chase() and patrol() methods that return the bestScores
         else:
             bestScore = min( distancesToPacman )
             print "2: ", bestScore
             bestProb = self.prob_attack
+        # TODO: REPLACE THIS WHOLE AREA WITH OWN IMPLEMENTATION OF CHASE, PATROL, RUN
 
         #for action, distance in zip(legalActions, distancesToPacman):
             #print action
