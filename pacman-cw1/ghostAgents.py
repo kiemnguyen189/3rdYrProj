@@ -18,6 +18,9 @@ from game import Directions
 import random
 from util import manhattanDistance
 import util
+import api
+from pacman import GameState
+from game import AgentState
 
 class GhostAgent( Agent ):
     def __init__( self, index ):
@@ -34,6 +37,14 @@ class GhostAgent( Agent ):
         "Returns a Counter encoding a distribution over actions from the provided state."
         util.raiseNotDefined()
 
+class MultiGhostAgent( Agent ):
+
+    def __init__(self):
+        self.index = 0
+        self.roleDict = {}
+        
+    
+
 class RandomGhost( GhostAgent ):
     "A ghost that chooses a legal action uniformly at random."
     def getDistribution( self, state ):
@@ -48,6 +59,7 @@ class DirectionalGhost( GhostAgent ):
         self.index = index
         self.prob_attack = prob_attack
         self.prob_scaredFlee = prob_scaredFlee
+        print self.index
 
     def getDistribution( self, state ):
         # Read variables from state
@@ -77,20 +89,108 @@ class DirectionalGhost( GhostAgent ):
         dist = util.Counter()
         for a in bestActions: dist[a] = bestProb / len(bestActions)
         for a in legalActions: dist[a] += ( 1-bestProb ) / len(legalActions)
+        #print "1: ", dist
         dist.normalize()
-        print "2: ", dist
+        #print "2: ", dist
         return dist
-
 
 
 class AuctionGhost( GhostAgent ):
     "A ghost that communicates with other ghosts its current state"
     "This can be used as part of the 'bidding' process in the Auction"
-    def __init__( self, index ):
+    def __init__( self, index, prob_attack=0.8, prob_scaredFlee=0.8  ):
         self.index = index
+        self.prob_attack = prob_attack
+        self.prob_scaredFlee = prob_scaredFlee
+        self.whole = []
+        self.walls = []
+        self.path = []
 
+    def registerInitialState(self, state):
+        self.whole = self.wholeMap()
+        self.walls = api.walls(state)
+        self.path = self.pathMap()
+
+    def chase(self, state):
+
+        num = state.getNumAgents()
+        st = state.getGhostState(self.index)
+        sta = state.getGhostStates()
+        #print st
+        #print sta
+        #print self.index
+
+        #pacmanPosition = state.getPacmanPosition()
+
+    """
+    def getAction(self, state):
+        num = state.getNumAgents()
+        print num
+
+
+    def chase(self, state):
+
+        num = state.getNumAgents()
+        print num
+
+        pacmanPosition = state.getPacmanPosition()
+
+
+
+    def run(self, state):
+
+        pacmanPosition = state.getPacmanPosition()
+
+
+
+    def patrol(self, state):
+
+        pacmanPosition = state.getPacmanPosition()
+    """
+
+    # Creats a list of coords of the whole map
+    def wholeMap(self):
+        ret = []
+        for i in range(self.walls[-1][0] + 1):
+            for j in range(self.walls[-1][1] + 1):
+                ret.append((i, j))
+        return ret
+
+    # Creates a list of coords that can be moved in (i.e. non walls)
+    def pathMap(self):
+        ret = []
+        for i in range(self.walls[-1][0] + 1):
+            for j in range(self.walls[-1][1] + 1):
+                if (i, j) not in self.walls:
+                    ret.append((i, j))
+        return ret
+
+    # Creates a list of coords around a capsule that a ghost will patrol
+    def capsuleRange(self, state):
+        capPath = []
+        capsulePos = state.getCapsules()
+        radius = 4
+        print capsulePos
+        for cap in capsulePos:
+            for i in range(cap[0]-radius, cap[0]+radius+1):
+                for j in range(cap[1]-radius, cap[1]+radius+1):
+                    if (i, j) in self.path:
+                        capPath.append((i, j))
+        print capPath
+        return capPath
+
+    # Gets a ghost to patrol an area around a capsule
+    def patrolCapsule(self, state):
+        path = self.capsuleRange(state)
+        pos = state.getGhostPosition(self.index)
+        visited = []
+        unvisited = []
+        
+
+    # Returns a dictionary of Direction-Probability pairs, highest prob gets chosen as Action to take
     def getDistribution( self, state ):
 
+        # Gets all state information
         ghostState = state.getGhostState( self.index )
         legalActions = state.getLegalActions( self.index )
         pos = state.getGhostPosition( self.index )
@@ -99,19 +199,74 @@ class AuctionGhost( GhostAgent ):
         speed = 1
         if isScared: speed = 0.5
 
+        # Gets vectors of ALL legal actions
+        actionVectors = [Actions.directionToVector( a, speed ) for a in legalActions]
+        #print actionVectors
 
+        # Coordinate vectors of ALL legal actions
+        newPositions = [( pos[0]+a[0], pos[1]+a[1] ) for a in actionVectors]
+        #print newPositions
 
+        pacmanPosition = state.getPacmanPosition()
+
+        # ---- TEST ----
+        ghostList = api.ghosts(state)
+        ghostDict = {}
+        # Create a dictionary of all ghostPositions and manhattan distances to pacman
+        for ghost in ghostList:
+            ghostDict[ghost] = manhattanDistance(ghost, pacmanPosition)
+        # Check if current ghostPosition is shortest
+        """
+        if pos == min(ghostDict):
+            print "chasin"
+        elif isScared:
+            print "runnin"
+        elif pos != min(ghostDict):
+            print "patrollin"
+            # patrol either capsule or food area
+        """
+        # ---- TEST ----
+
+        # TODO: FIGURE THIS OUT
+        # Select best actions given the state
+        # Calculates Manhattan of ALL legal vectors
+        distancesToPacman = [manhattanDistance( pos, pacmanPosition ) for pos in newPositions]
+        #print distancesToPacman
+
+        # If scared, best choice = vector FURTHEST from pacman
+        if isScared:
+            bestScore = max( distancesToPacman )
+            print "1: ", bestScore
+            bestProb = self.prob_scaredFlee
+        # If normal, best choice = vector CLOSEST to pacman
+        else:
+            bestScore = min( distancesToPacman )
+            print "2: ", bestScore
+            bestProb = self.prob_attack
+
+        #for action, distance in zip(legalActions, distancesToPacman):
+            #print action
+        print zip(legalActions, distancesToPacman)
+
+        # Gets "Direction(s)" that matches smallest (or largest if scared) distance
+        bestActions = [action for action, distance in zip( legalActions, distancesToPacman ) if distance == bestScore]
+        print bestActions
+
+        # Construct distribution
+        dist = util.Counter()
+        # Split probability of all BEST actions (i.e. 1 best = 0.8, 2 best = 0.4 each)
+        for a in bestActions: 
+            dist[a] = bestProb / len(bestActions)
+            print "1: ", dist[a]
+        print legalActions
+
+        # Add to probability of BEST actions the LEGAL actions, if legal not best then lower probability 
+        # (e.g. BEST and LEGAL = 0.8 + 0.1, LEGAL ONLY = 0.1)
+        for a in legalActions: 
+            dist[a] += ( 1-bestProb ) / len(legalActions)
+            print "2: ", dist[a]
+        print "1: ", dist
+        dist.normalize()
+        #print "2: ", dist
+        print "\n"
         return dist
-
-
-"""
-while running = True:
-    winBids = []
-    ghosts = []
-    ghostPositions = {}
-    ghostDistances = {}
-    ghostsScared = {}
-    scaredTimers = {}
-    for ghost in ghosts:
-        highestBid = min(ghostDistances, key= ghostDistances.get) + min(scaredTimers, key= scaredTimers.get)
-"""
