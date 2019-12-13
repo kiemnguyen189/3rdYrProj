@@ -23,8 +23,9 @@ from pacman import GameState
 from game import AgentState
 
 class GhostAgent( Agent ):
+
     def __init__( self, index ):
-        self.index = index
+        self.index = index            
 
     def getAction( self, state ):
         dist = self.getDistribution(state)
@@ -38,10 +39,33 @@ class GhostAgent( Agent ):
         util.raiseNotDefined()
 
 class MultiGhostAgent( Agent ):
+    
+    isAuction = False
+    numAgents = 0
+    bids = {}   # indexes and distances
 
-    def __init__(self):
-        self.index = 0
-        self.roleDict = {}
+    def __init__( self, index ):
+        self.index = index 
+        #self.numAgents += 1  
+        #self.bids[self.index] = 0   
+
+    #def registerInitialState( self, state ):      
+        #ghostDict[self.index] = state.getGhostPosition(self.index)
+        #print ghostDict
+
+    def getAction( self, state ):
+        #print self.index
+        #print state.getGhostPosition(self.index)
+
+        dist = self.getDistribution(state)
+        if len(dist) == 0:
+            return Directions.STOP
+        else:
+            return util.chooseFromDistribution( dist )
+
+    def getDistribution(self, state):
+        "Returns a Counter encoding a distribution over actions from the provided state."
+        util.raiseNotDefined()
         
     
 
@@ -95,7 +119,7 @@ class DirectionalGhost( GhostAgent ):
         return dist
 
 
-class AuctionGhost( GhostAgent ):
+class AuctionGhost( MultiGhostAgent ):
     "A ghost that communicates with other ghosts its current state"
     "This can be used as part of the 'bidding' process in the Auction"
     def __init__( self, index, prob_attack=0.8, prob_scaredFlee=0.8  ):
@@ -105,10 +129,23 @@ class AuctionGhost( GhostAgent ):
         self.whole = []
         self.walls = []
         self.path = []
+        #ghostDict[self.index] = state.getGhostPosition(self.index)
+        #print ghostDict
+        MultiGhostAgent.numAgents += 1
+        MultiGhostAgent.bids[self.index] = 0
+        #if self.index == 1:
+        #    MultiGhostAgent.isAuction = True
+        #if MultiGhostAgent.bids
+        if len(MultiGhostAgent.bids) == 4:
+            MultiGhostAgent.isAuction = True
+            print "MAX"
+        print MultiGhostAgent.bids
+        print MultiGhostAgent.numAgents
 
     def registerInitialState(self, state):
-        self.whole = self.wholeMap()
+        
         self.walls = api.walls(state)
+        self.whole = self.wholeMap()
         self.path = self.pathMap()
 
     def chase(self, state):
@@ -148,7 +185,7 @@ class AuctionGhost( GhostAgent ):
         pacmanPosition = state.getPacmanPosition()
     """
 
-    # Creats a list of coords of the whole map
+    # Creates a list of coords of the whole map
     def wholeMap(self):
         ret = []
         for i in range(self.walls[-1][0] + 1):
@@ -165,26 +202,44 @@ class AuctionGhost( GhostAgent ):
                     ret.append((i, j))
         return ret
 
-    # Creates a list of coords around a capsule that a ghost will patrol
+    # Creates a dictionary of capsule positions (key) and coords around a capsule that a ghost will patrol (value)
     def capsuleRange(self, state):
-        capPath = []
+        ret = {}
         capsulePos = state.getCapsules()
         radius = 4
-        print capsulePos
+        #print capsulePos
         for cap in capsulePos:
+            capPath = []
             for i in range(cap[0]-radius, cap[0]+radius+1):
                 for j in range(cap[1]-radius, cap[1]+radius+1):
                     if (i, j) in self.path:
                         capPath.append((i, j))
-        print capPath
-        return capPath
+            ret[cap] = capPath
+        #print ret
+        return ret
 
+    
     # Gets a ghost to patrol an area around a capsule
-    def patrolCapsule(self, state):
+    def patrolNearestCapsule(self, state):
         path = self.capsuleRange(state)
+        #print path
         pos = state.getGhostPosition(self.index)
+        capDist = {}
+        for i in path:
+            dist = manhattanDistance(pos, i)
+            capDist[i] = dist
+        nearestCap = min(capDist)
+        #print nearestCap
         visited = []
-        unvisited = []
+        unvisited = path[nearestCap]
+        #print unvisited
+        if pos in unvisited:
+            unvisited.remove(pos)
+        print unvisited
+    
+    
+
+
         
 
     # Returns a dictionary of Direction-Probability pairs, highest prob gets chosen as Action to take
@@ -202,14 +257,21 @@ class AuctionGhost( GhostAgent ):
         # Gets vectors of ALL legal actions
         actionVectors = [Actions.directionToVector( a, speed ) for a in legalActions]
         #print actionVectors
-
         # Coordinate vectors of ALL legal actions
         newPositions = [( pos[0]+a[0], pos[1]+a[1] ) for a in actionVectors]
         #print newPositions
-
         pacmanPosition = state.getPacmanPosition()
 
+
+        
+
         # ---- TEST ----
+        MultiGhostAgent.bids[self.index] = manhattanDistance(pos, pacmanPosition)
+        print MultiGhostAgent.bids
+        #print self.capsuleRange(state)
+        print self.patrolNearestCapsule(state)
+
+
         ghostList = api.ghosts(state)
         ghostDict = {}
         # Create a dictionary of all ghostPositions and manhattan distances to pacman
@@ -236,39 +298,42 @@ class AuctionGhost( GhostAgent ):
         # If scared, best choice = vector FURTHEST from pacman
         if isScared:
             bestScore = max( distancesToPacman )
-            print "1: ", bestScore
+            #print "1: ", bestScore
             bestProb = self.prob_scaredFlee
         # If normal, best choice = vector CLOSEST to pacman
         # todo: Maybe add here chase() and patrol() methods that return the bestScores
         else:
+            # todo: if closer to capsule, PATROL
+            # todo: if closer to pacman, CHASE
+            #bestScore = min()
             bestScore = min( distancesToPacman )
-            print "2: ", bestScore
+            #print "2: ", bestScore
             bestProb = self.prob_attack
         # TODO: REPLACE THIS WHOLE AREA WITH OWN IMPLEMENTATION OF CHASE, PATROL, RUN
 
         #for action, distance in zip(legalActions, distancesToPacman):
             #print action
-        print zip(legalActions, distancesToPacman)
+        #print zip(legalActions, distancesToPacman)
 
         # Gets "Direction(s)" that matches smallest (or largest if scared) distance
         bestActions = [action for action, distance in zip( legalActions, distancesToPacman ) if distance == bestScore]
-        print bestActions
+        #print bestActions
 
         # Construct distribution
         dist = util.Counter()
         # Split probability of all BEST actions (i.e. 1 best = 0.8, 2 best = 0.4 each)
         for a in bestActions: 
             dist[a] = bestProb / len(bestActions)
-            print "1: ", dist[a]
-        print legalActions
+            #print "1: ", dist[a]
+        #print legalActions
 
         # Add to probability of BEST actions the LEGAL actions, if legal not best then lower probability 
         # (e.g. BEST and LEGAL = 0.8 + 0.1, LEGAL ONLY = 0.1)
         for a in legalActions: 
             dist[a] += ( 1-bestProb ) / len(legalActions)
-            print "2: ", dist[a]
-        print "1: ", dist
+            #print "2: ", dist[a]
+        #print "1: ", dist
         dist.normalize()
         #print "2: ", dist
-        print "\n"
+        #print "\n"
         return dist
