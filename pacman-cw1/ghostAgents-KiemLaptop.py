@@ -37,7 +37,7 @@ class MultiGhostAgent( Agent ):
     # Values unique to each agent
     steps = 0               # number of steps in the game each agent has taken
     pacDist = 0
-    #currentTask = "PATROL"  # current task of each agent
+    currentTask = "PATROL"  # current task of each agent
 
     def __init__( self, index ):
         self.index = index 
@@ -57,7 +57,7 @@ class MultiGhostAgent( Agent ):
     # Returns the 'bids' class variable as a dictionary containing agent indexes and values
     def holdAuction(self, state):
         print("")
-        #print(self.index, "HOLD START: ", self.bids)
+        print(self.index, "HOLD START: ", self.bids)
         self.winner = min(MultiGhostAgent.bids, key=MultiGhostAgent.bids.get)
         print("WINNING AGENT: ", self.winner)
         # Reset all tasks
@@ -65,7 +65,7 @@ class MultiGhostAgent( Agent ):
             items[2] = "PATROL"
         # Redistribute tasks to agents
         self.bids[self.winner] = [self.bids[self.winner][0], self.steps, "CHASE"]
-        #print(self.index, "HOLD FINISH: ", self.bids)
+        print(self.index, "HOLD FINISH: ", self.bids)
         #return self.bids
 
 
@@ -73,7 +73,7 @@ class MultiGhostAgent( Agent ):
 class AuctionGhost( MultiGhostAgent ):
     "A ghost that communicates with other ghosts its current state"
     "This can be used as part of the 'bidding' process in the Auction"
-    def __init__( self, index, prob_attack=0.99, prob_scaredFlee=0.99  ):
+    def __init__( self, index, prob_attack=0.8, prob_scaredFlee=0.8  ):
         self.index = index
         self.prob_attack = prob_attack
         self.prob_scaredFlee = prob_scaredFlee
@@ -145,7 +145,7 @@ class AuctionGhost( MultiGhostAgent ):
                         capPath.append((i, j))
             ret[cap] = capPath
         #print ret
-        #return ret
+        return ret
 
     
     # Gets a ghost to patrol an area around a capsule
@@ -175,7 +175,6 @@ class AuctionGhost( MultiGhostAgent ):
         legalActions = state.getLegalActions( self.index )
         pos = state.getGhostPosition( self.index )
         isScared = ghostState.scaredTimer > 0
-        self.steps += 1
 
         speed = 1
         if isScared: speed = 0.5
@@ -187,27 +186,27 @@ class AuctionGhost( MultiGhostAgent ):
         newPositions = [( pos[0]+a[0], pos[1]+a[1] ) for a in actionVectors]
         #print "new ", newPositions
         pacmanPosition = state.getPacmanPosition()
-        capsulePosition = 
 
         # -------- TEST --------
+        # Iterate step
+        self.steps += 1
         # Measure bid size
         self.pacDist = manhattanDistance(pos, pacmanPosition)
         # Set value of agent index to [bid, step, task]
-        tempValue = [self.pacDist, self.steps, MultiGhostAgent.bids[self.index][2]]
+        tempValue = [self.pacDist, self.steps, self.currentTask]
         MultiGhostAgent.bids[self.index] = tempValue
         #print("Bids: ", MultiGhostAgent.bids)
         # -------- TEST --------
-
 
         # Select best actions given the state
         # Calculates Manhattan of ALL legal vectors
         distancesToPacman = [manhattanDistance( pos, pacmanPosition ) for pos in newPositions]
         #print distancesToPacman
-        #nextPath = self.patrolNearestCapsule(state)
-        #distancesToPatrol = [manhattanDistance( pos, patrolPos ) for pos in ]
 
         # TODO: vvvvvvvv REPLACE THIS WHOLE AREA WITH OWN IMPLEMENTATION OF CHASE, PATROL, RUN vvvvvvvv
         # If scared, best choice = vector FURTHEST from pacman
+        bestScore = 0
+        bestProb = 0
         if isScared:
             self.currentTask = "RUN"
             bestScore = max( distancesToPacman )
@@ -215,31 +214,25 @@ class AuctionGhost( MultiGhostAgent ):
             bestProb = self.prob_scaredFlee
         # If normal, best choice = vector CLOSEST to pacman
         else:
-            #print(MultiGhostAgent.bids)
             # Check to see if every agent has step of INTERVAL to carry out Auction 
             # todo: Maybe add here chase() and patrol() methods that return the bestScores
             # If auction -> change current task
             if all(value[1] % MultiGhostAgent.INTERVAL == 0 for value in MultiGhostAgent.bids.values()):
-                # Hold an auction every INTERVAL steps
                 self.holdAuction(state)
-                for item in MultiGhostAgent.bids.items():
-                    print(item)
+                #print("Auction Finished!", MultiGhostAgent.bids)
                 bestScore = MultiGhostAgent.bids[self.index][0]
                 bestProb = self.prob_attack
             # Else (no auction) -> keep doing current task
             else:
                 # todo: if closer to pacman, CHASE
-                #print( MultiGhostAgent.bids.get(self.index)[2])
+                
                 if MultiGhostAgent.bids.get(self.index)[2] == "CHASE":
-                    #print(self.index, " CHASING")
                     bestScore = min( distancesToPacman ) 
                     bestProb = self.prob_attack
                 # todo: if closer to capsule, PATROL
                 else:
-                    #print(self.index, " PATROLING")
-                    self.capsuleRange(state)
                     bestScore = min( distancesToPacman ) 
-                    bestProb = self.prob_attack / 2
+                    bestProb = self.prob_attack
             
         # TODO: ^^^^^^^^ REPLACE THIS WHOLE AREA WITH OWN IMPLEMENTATION OF CHASE, PATROL, RUN ^^^^^^^^
 
