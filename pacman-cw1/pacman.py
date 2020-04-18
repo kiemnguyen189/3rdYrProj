@@ -663,6 +663,20 @@ def runGames( layout, pacman, ghosts, display, numGames, record, numTraining = 0
         print 'Win Rate:      %d/%d (%.2f)' % (wins.count(True), len(wins), winRate)
         print 'Record:       ', ', '.join([ ['Loss', 'Win'][int(w)] for w in wins])
 
+        """
+        X = [1,2,3,4,5] # X-axis
+        Y = scores # Y-axis, your data
+
+        fig, ax = plt.subplots()
+        ax.plot(X, Y)
+
+        ax.set(xlabel='Interval', ylabel='Scores',
+            title='Interval of Auctions vs. Score')
+
+        fig.savefig("testPlot.png")
+        plt.show()
+        """
+
     return games
 
 if __name__ == '__main__':

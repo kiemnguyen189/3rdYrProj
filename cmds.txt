@@ -1,0 +1,6 @@
+python pacman.py -p MDPAgent -g AuctionGhost -l originalClassic -q -n 100 -k 
+
+cd OneDrive/KCL/Year3/6CCS3PRJ/pacman-cw1
+
+INTERVAL 2
+PP

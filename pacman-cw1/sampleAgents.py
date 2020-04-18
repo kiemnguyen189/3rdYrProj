@@ -581,25 +581,15 @@ def nearFind(pac, theList, nearestEntity):
 # Returns a direction of an entity relative to pacman
 def pairBearing(pac, entity):
 
-    print pac
-    print entity
     direc = Directions.STOP
     x = pac[0] - entity[0]
     y = pac[1] - entity[1]
     if abs(x) > abs(y):
-        if x < 0:
-            direc = Directions.EAST
-            print "REV east: ", Directions.REVERSE[direc]
-        else:
-            direc = Directions.WEST
-            print "REV west: ", Directions.REVERSE[direc]
+        if x < 0: direc = Directions.EAST
+        else: direc = Directions.WEST
     else:
-        if y < 0:
-            direc = Directions.NORTH
-            print "REV north: ", Directions.REVERSE[direc]
-        else:
-            direc = Directions.SOUTH
-            print "REV south: ", Directions.REVERSE[direc]
+        if y < 0: direc = Directions.NORTH
+        else: direc = Directions.SOUTH
     return direc
 
 # Makes pacman run away from the nearest ghost
@@ -607,11 +597,14 @@ def runAway(pac, ghost, legality, l1):
 
     direc = Directions.STOP
     ghostDirec = pairBearing(pac, ghost)
-    print "GHOST: ", ghostDirec
-    print "LEGAL: ", legality
-    if ghostDirec in legality:
-        print "removed: ", ghostDirec
-        legality.remove(ghostDirec)
+    #print "GHOST: ", ghostDirec
+    #print "LEGAL: ", legality
+    if len(legality) != 0:
+        if ghostDirec in legality:
+            #print "removed: ", ghostDirec
+            legality.remove(ghostDirec)
+    else:
+        legality[0] = Directions.STOP
 
     return (legality[0], legality)
 
@@ -676,20 +669,14 @@ class TestAgent(Agent):
         if Directions.STOP in legal:
             legal.remove(Directions.STOP)
         # If list of ghosts is empty, nearest ghost is not in range
-        if len(theGhosts) == 0:
-            nearestGhost = (9999, 9999)
-        else:
-            nearestGhost = theGhosts[0]
+        if len(theGhosts) == 0: nearestGhost = (9999, 9999)
+        else: nearestGhost = theGhosts[0]
         # If list of food is empty, nearest food is at not in range
-        if len(theFood) == 0:
-            nearestFood = (9999, 9999)
-        else:
-            nearestFood = theFood[0]
+        if len(theFood) == 0: nearestFood = (9999, 9999)
+        else: nearestFood = theFood[0]
         # If list of unvisited corners is empty
-        if len(unvisited) == 0:
-            nearestCorner = (9999, 9999)
-        else:
-            nearestCorner = unvisited[0]
+        if len(unvisited) == 0: nearestCorner = (9999, 9999)
+        else: nearestCorner = unvisited[0]
         # Adds corners to be stored persistently
         for i in range(len(corners)):
             elem = corners[i]
@@ -715,27 +702,21 @@ class TestAgent(Agent):
         tempCorner = (pacman[0] - nC[0], pacman[1] - nC[1])
         # Random direction from legal directions
         pick = random.choice(legal)
-        detectionDist = 5
+        detectionDist = 3
         l1 = self.last3
         #test
 
         # TODO: Change to relative positioning of ghosts to pac instead of absolute coords
-        if util.manhattanDistance(pacman, nearestGhost) < detectionDist:
-            print "AVOID"
-            direc = runAway(pacman, nG, legal, l1)
-            (d, l) = direc
+        if util.manhattanDistance(pacman, nearestGhost) <= detectionDist:
+            (d, l) = runAway(pacman, nG, legal, l1)
             #print "LAST 3: ", self.last3
             return api.makeMove(d, l)
         elif len(theFood) != 0:
-            print "FIND FOOD"
-            direc = findDirection(tempFood, legal, l1)
-            (d, l) = direc
+            (d, l) = findDirection(tempFood, legal, l1)
             #print "LAST 3: ", self.last3
             return api.makeMove(d, l)
         elif len(theFood) == 0:
-            print "FIND CORNERS"
-            direc = findDirection(tempCorner, legal, l1)
-            (d, l) = direc
+            (d, l) = findDirection(tempCorner, legal, l1)
             #print "LAST 3: ", self.last3
             return api.makeMove(d, l)
         
@@ -745,14 +726,14 @@ class MDPAgent(Agent):
     # Constructor: this gets run when we first invoke pacman.py
     def __init__(self):
         # params
-        self.direcProb = 0.8        # Direction probability (80%)
+        self.direcProb = 1        # Direction probability (80%)
         self.emptyReward = -0.04    # The 'reward' for moving pacman
         self.discountFactor = 0.5   # Discount factor
         self.avoidRadius = 0        # Radius around a ghost that pacman should avoid
         # Rewards
         self.foodReward = 1         # Reward for food
         self.capsuleReward = 1      # Reward for capsule
-        self.ghostReward = -2       # Reward for ghost
+        self.ghostReward = -4       # Reward for ghost
         # Init lists
         # FIXED
         self.whole = []             # List of coordinates of the whole map
