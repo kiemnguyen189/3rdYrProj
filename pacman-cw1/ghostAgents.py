@@ -10,34 +10,48 @@
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
 # Student side autograding was added by Brad Miller, Nick Hay, and
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
+#
+# Auction Method Extentions written by Kiem Mark Duc Nguyen 
+# Finished 20th April 2020
+# The Auction Method Extention allows the ghost agents in this package to emulate 
+# market-based coodrination techniques. Each agent submits a "bid" to the auctioneer,
+# implemented as a parent class to the AuctionGhost agents that holds the central
+# "bids" variable, implemented as a dictionary containing agent indexes and bid
+# values. Bid sizes are measured according to each agent's Manhattan distances to
+# Pacman, where the closest ghost agent to pacman has the highest bid.
 
 
 from game import Agent
+from game import AgentState
 from game import Actions
 from game import Directions
-import random
-from util import manhattanDistance
-import util
-import api
 from pacman import GameState
-from game import AgentState
+import util
+from util import manhattanDistance
+import api
+import random
 import csv
 
 
 # Acts as an "Auctioneer"
 class MultiGhostAgent( Agent ):
-    
-    # Variables to change between tests
-    INTERVAL = 4            # number of steps every ghost agent has to take before an auction is held
-    PATROL_MODE = "FOOD"    # can be: ["FOOD", "CAP", "BOTH"]
+
+    # Read test variables from csv file 'AuctionVars.csv'
+    with open('AuctionVars.csv') as csvFile:
+        csv_reader = csv.reader(csvFile, delimiter=',')
+        for row in csv_reader:
+            # Variables to change between tests
+            INTERVAL = row[0]       # number of steps every ghost agent has to take before an auction is held
+            PATROL_MODE = row[1]    # can be: ["FOOD", "CAP"]
+            PRINTS = row[2]         # boolean to control printing of detailed auction
+
     # Shared data between all agents
     bids = {}               # key = indexes, values = [distances, steps, task]
     numAgents = 0           # number of ghost agents present in the game
     winner = 0              # index of winning ghost agent
     # Values unique to each agent
     steps = 0               # number of steps in the game each agent has taken
-    pacDist = 0
-    #currentTask = "PATROL"  # current task of each agent
+    pacDist = 0             # Distance between a ghost and pacman
 
     def __init__( self, index ):
         self.index = index 
@@ -58,14 +72,21 @@ class MultiGhostAgent( Agent ):
     # Returns the 'bids' class variable as a dictionary containing agent indexes and values
     def holdAuction(self, state):
 
-        self.winner = min(MultiGhostAgent.bids, key=MultiGhostAgent.bids.get)
+        MultiGhostAgent.winner = min(MultiGhostAgent.bids, key=MultiGhostAgent.bids.get)
         # Reset all tasks
         for items in self.bids.values():
             items[2] = "PATROL"
         # Redistribute tasks to agents
-        self.bids[self.winner] = [self.bids[self.winner][0], self.steps, "CHASE"]
+        self.bids[MultiGhostAgent.winner] = [self.bids[MultiGhostAgent.winner][0], self.steps, "CHASE"]
 
+        if MultiGhostAgent.PRINTS == "TRUE":
+            print ""
+            print "Auction number:", self.steps / int(MultiGhostAgent.INTERVAL)
+            for key, value in MultiGhostAgent.bids.items():
+                print " - Ghost index:", key, ", Bid:", value[0], ", Current Task:", value[2]
+            print "Winner = Ghost index", MultiGhostAgent.winner
 
+# AuctionGhost inherits MultiGhostAgent functionality of holding auctions and relevent variables
 class AuctionGhost( MultiGhostAgent ):
     "A ghost that communicates with other ghosts its current state"
     "This can be used as part of the 'bidding' process in the Auction"
@@ -120,7 +141,6 @@ class AuctionGhost( MultiGhostAgent ):
 
     # Returns a coordinate of the nearest capsule to the ghost
     def getNearestCap(self, state, pos):
-        caps = []
         capsulePos = state.getCapsules()
         if len(capsulePos) != 0:
             currentMin = util.manhattanDistance(pos, capsulePos[0])
@@ -153,14 +173,8 @@ class AuctionGhost( MultiGhostAgent ):
                     minimum = i
         else: 
             minimum = pos
-        #print minimum
         return minimum
 
-    def foodOrCap(self, cap, food, pos):
-        foodDist = util.manhattanDistance(pos, food)
-        capDist = util.manhattanDistance(pos, cap)
-        if capDist <= foodDist: return cap
-        else: return food
 
     # Returns a dictionary of Direction-Probability pairs, highest prob gets chosen as Action to take
     def getDistribution( self, state ):
@@ -181,6 +195,7 @@ class AuctionGhost( MultiGhostAgent ):
         # Coordinate vectors of ALL legal actions e.g. [(9, 7), (9, 5)]
         newPositions = [( pos[0]+a[0], pos[1]+a[1] ) for a in actionVectors]
 
+        # Retrieve Task mode defined in AuctionVars.csv and gets positions of points of interest
         pacmanPos = state.getPacmanPosition()
         capsulePos = self.getNearestCap(state, pos)
         pillPos = self.getNearestFood(state, pos)
@@ -188,14 +203,11 @@ class AuctionGhost( MultiGhostAgent ):
             patrolPos = pillPos
         elif MultiGhostAgent.PATROL_MODE == "CAP": 
             patrolPos = capsulePos
-        elif MultiGhostAgent.PATROL_MODE == "BOTH": 
-            patrolPos = self.foodOrCap(capsulePos, pillPos, pos)
 
-        # Measure bid size
+        # Measure distance between ghost and Pacman
         self.pacDist = manhattanDistance(pos, pacmanPos)
         # Set value of agent index to [bid, step, task]
-        tempValue = [self.pacDist, self.steps, MultiGhostAgent.bids[self.index][2]]
-        MultiGhostAgent.bids[self.index] = tempValue
+        MultiGhostAgent.bids[self.index] = [self.pacDist, self.steps, MultiGhostAgent.bids[self.index][2]]
 
         # Select best actions given the state
         # Calculates Manhattan of ALL legal vectors
@@ -212,19 +224,18 @@ class AuctionGhost( MultiGhostAgent ):
         else:
             # Check to see if every agent has step of INTERVAL to carry out Auction 
             # If auction -> change current task
-            if all(value[1] % MultiGhostAgent.INTERVAL == 0 for value in MultiGhostAgent.bids.values()):
+            if all(value[1] % int(MultiGhostAgent.INTERVAL) == 0 for value in MultiGhostAgent.bids.values()):
                 self.holdAuction(state)
                 bestScore = MultiGhostAgent.bids[self.index][0]
                 bestProb = self.prob_attack
-            # Else (no auction) -> keep doing current task
+            # Else (no auction) -> do current task
             else:
                 if MultiGhostAgent.bids.get(self.index)[2] == "CHASE":
                     bestScore = min( distancesToPacman ) 
                     bestProb = self.prob_attack
                 else:
-                    self.capsuleRange(state)
                     bestScore = min( distancesToPatrol ) 
-                    bestProb = 1 / self.prob_attack
+                    bestProb = self.prob_attack
 
         # Gets "Direction(s)" that matches smallest (or largest if scared) distance
         if MultiGhostAgent.bids.get(self.index)[2] == "CHASE": bestDistances = distancesToPacman
@@ -233,17 +244,12 @@ class AuctionGhost( MultiGhostAgent ):
 
         # Construct distribution
         dist = util.Counter()
-        print dist
         # Split probability of all BEST actions (i.e. 1 best = 0.8, 2 best = 0.4 each)
         for a in bestActions: dist[a] = bestProb / len(bestActions)
-        print dist
         # Add to probability of BEST actions the LEGAL actions, if legal not best then lower probability 
         # (e.g. BEST and LEGAL = 0.8 + 0.1, LEGAL ONLY = 0.1)
         for a in legalActions: dist[a] += ( 1-bestProb ) / len(legalActions)
-        print dist
         dist.normalize()
-        print dist
-        print ""
         return dist
 
 # -------------------------------------------------------------------------------------------------------------------------------------------------------
